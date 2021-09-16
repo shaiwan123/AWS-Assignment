@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: 2010-09-09
+Metadata:
+  'AWS::CloudFormation::Designer':
+    51c3c293-8c32-43d1-a371-d9ffc9dfd514:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 375
+        'y': 187
+      z: 0
+      embeds: []
+    daaa8efc-64d2-4ff5-9ec2-0f8cb48d41c2:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 442
+        'y': 185
+      z: 0
+      embeds: []
+    0060213c-a1a1-4fff-9b13-44429afd9727:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 520
+        'y': 180
+      z: 0
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: cust-contact-details
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 51c3c293-8c32-43d1-a371-d9ffc9dfd514
+  MyBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Id: Policy1631704657425
+        Statement:
+          Sid: DeleteS3Object
+          Effect: Deny
+          NotPrincipal:
+            AWS: 'arn:aws:iam::222422630876:root'
+          Action: 's3:DeleteObject'
+          Resource:
+            - 'arn:aws:s3:::cust-contact-details'
+            - 'arn:aws:s3:::cust-contact-details/*'
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: daaa8efc-64d2-4ff5-9ec2-0f8cb48d41c2
+  CustPhoneTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: Customer_Details
+      AttributeDefinitions:
+        - AttributeName: Customer_ID
+          AttributeType: S
+        - AttributeName: Telephone_Number
+          AttributeType: 'N'
+        - AttributeName: Telephone_Password
+          AttributeType: 'N'
+        - AttributeName: First_Name
+          AttributeType: S
+        - AttributeName: Last_Name
+          AttributeType: S
+        - AttributeName: File_Name
+          AttributeType: S
+        - AttributeName: File_Size
+          AttributeType: S
+        - AttributeName: File_Created_Timestamp
+          AttributeType: S
+      KeySchema:
+        AttributeName: Telephone_Number
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: '1'
+        WriteCapacityUnits: '1'
+    DependsOn:
+      - DynamoDBQueryPolicy
+  DynamoDBQueryPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: DynamoDBQueryPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          Effect: Allow
+          Action: 'dynamodb:Query'
+          Resource: '*'
+      Roles:
+        - !Ref PhonenumberTableQueryRole
+  PhonenumberTableQueryRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: dynamodb.amazonaws.com
+              Action: 'sts:AssumeRole'
+      Path: /
+  LambadaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName:
+        'Fn::Sub': Lambda-Dynamo
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+        - 'arn:aws:iam::aws:policy/AWSLambdaBasicExecutionRole'
+      Path: /
+  CheckLambda:
+    Type: 'AWS::Lambda::Function'
+    Properties: 
+      Handler: 'lambda_handler'
+      Runtime: 'python3.9'
+      Timeout: '900'
+      Code:
+        S3Bucket: lambda-zipcode
+        S3Key: lambda-zipcode/Check_Telephone_Number.zip
+      Role:
+        Fn::GetAtt:
+          - LambadaRole
+          - Arn
+          
+  UpdateLambda:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'lambda_handler'
+      Runtime: 'python3.9'
+      Timeout: '900'
+      Code:
+        S3Bucket: lambda-zipcode
+        S3Key: lambda-zipcode/Update_Telephone.zip
+      Role:
+        Fn::GetAtt:
+          - LambadaRole
+          - Arn
+
